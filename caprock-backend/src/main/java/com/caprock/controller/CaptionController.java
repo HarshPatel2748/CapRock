@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
@@ -60,19 +61,40 @@ public class CaptionController {
                     .orElse(null);
         }
 
-        //Step 3 -> call Gemini
-        String rawText = geminiService.generateCaptions(
-                request.getImageBase64(),
-                request.getPlatform(),
-                brandProfile,
-                request.getKeyDetail(),
-                request.getStyleNote());
+        try {
+            //Step 3 -> call Gemini
+            String rawText = geminiService.generateCaptions(
+                    request.getImageBase64(),
+                    request.getPlatform(),
+                    brandProfile,
+                    request.getKeyDetail(),
+                    request.getStyleNote());
 
-        //Step 4 -> deduct credit only after successful generation
-        creditService.deductCredit(user);
+            //Step 4 -> deduct credit only after successful generation
+            creditService.deductCredit(user);
 
-        return ResponseEntity.ok(
-                new GenerateResponse(rawText, user.getCredits())
-        );
+            return ResponseEntity.ok(
+                    new GenerateResponse(rawText, user.getCredits())
+            );
+        }catch (HttpClientErrorException e) {
+            if (e.getStatusCode().value() == 429) {
+                throw new ResponseStatusException(
+                        HttpStatus.TOO_MANY_REQUESTS,
+                        "AI service quota exceeded. Please try again later."
+                );
+            }
+            // Log the actual Gemini error body
+            System.err.println("Gemini error: " + e.getResponseBodyAsString());
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "AI service error: " + e.getResponseBodyAsString()
+            );
+        } catch (Exception e) {
+            System.err.println("Unexpected error: " + e.getMessage());
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Unexpected error: " + e.getMessage()
+            );
+        }
     }
 }

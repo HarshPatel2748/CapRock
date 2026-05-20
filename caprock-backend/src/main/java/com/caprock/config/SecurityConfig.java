@@ -73,6 +73,7 @@ public class SecurityConfig {
                         //Public routes
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/payment/webhook").permitAll()
+                        .requestMatchers("/error").permitAll()
                         //Admin only
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         //Everything else requires a valid JWT

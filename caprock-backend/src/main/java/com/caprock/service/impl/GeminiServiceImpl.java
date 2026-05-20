@@ -22,6 +22,9 @@ public class GeminiServiceImpl implements GeminiService {
     @Value("${gemini.model}")
     private String geminiModel;
 
+    @Value("${gemini.mock:false}")
+    private boolean mockMode;
+
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -32,6 +35,24 @@ public class GeminiServiceImpl implements GeminiService {
                                    BrandProfile brandProfile,
                                    String keyDetail,
                                    String styleNote){
+
+        if (mockMode) {
+            return """
+                [PROFESSIONAL]
+                Embracing the quiet beauty of morning. 🌅
+                #MorningVibes #Nature #Peaceful
+
+                [WITTY]
+                Birds: 1, Alarm clock: 0. 🐦
+                #EarlyBird #NatureLover #MorningPerson
+
+                [MINIMALIST]
+                Still. Warm. Alive.
+                #Nature #Morning
+                """;
+        }
+
+
 
         String prompt = buildPrompt(platform, brandProfile, keyDetail, styleNote);
         String url = "https://generativelanguage.googleapis.com/v1beta/models/"
