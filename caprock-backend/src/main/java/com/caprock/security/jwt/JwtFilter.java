@@ -1,5 +1,6 @@
 package com.caprock.security.jwt;
 
+import com.caprock.security.services.UserDetailsImpl;
 import com.caprock.security.services.UserDetailsServiceImpl;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -34,8 +35,16 @@ public class JwtFilter extends OncePerRequestFilter {
         //Step 2 -> if token exists and is valid, authenticate the request
         if(token != null && jwtUtil.validateToken(token)){
             String email = jwtUtil.getEmailFromToken(token);
+            String role = jwtUtil.getRoleFromToken(token);
 
-            UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+            UserDetails userDetails;
+
+            // Admin has no DB record — build UserDetails directly from token
+            if ("ADMIN".equals(role)) {
+                userDetails = new UserDetailsImpl(0L, email, "", "ROLE_ADMIN");
+            } else {
+                userDetails = userDetailsService.loadUserByUsername(email);
+            }
 
             //Step 3 -> create an auth object and set it in Spring's security context
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
