@@ -104,4 +104,15 @@ public class AuthServiceImpl implements AuthService {
         return new LoginResponse(
                 null, user.getId(), user.getName(), user.getEmail(), "USER", user.getPlan(), user.getCredits());
     }
+
+    @Override
+    public void updateName(String email, String name){
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "User not found"
+                ));
+
+        user.setName(name.trim());
+        userRepository.save(user);
+    }
 }

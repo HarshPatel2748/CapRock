@@ -11,4 +11,6 @@ public interface AuthService {
     LoginResponse login(LoginRequest request);
 
     LoginResponse me(String email, String role);
+
+    void updateName(String email, String name);
 }

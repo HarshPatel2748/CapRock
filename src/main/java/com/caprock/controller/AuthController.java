@@ -11,6 +11,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -42,5 +45,20 @@ public class AuthController {
         LoginResponse response = authService.me(
                 userDetails.getUsername(), userDetails.getRole());
         return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<?> updateMe(
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+            ){
+
+        String name = body.get("name");
+        if(name == null || name.isBlank()){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Name cannot be empty.");
+        }
+
+        authService.updateName(userDetails.getUsername(), name);
+        return ResponseEntity.ok(Map.of("message", "Name updated successfully"));
     }
 }
