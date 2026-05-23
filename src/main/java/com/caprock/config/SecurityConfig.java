@@ -18,6 +18,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
@@ -33,13 +34,14 @@ public class SecurityConfig {
     @Autowired
     private JwtFilter jwtFilter;
 
-    //BCrypt bean -> used everywhere we hash or verify passwords
+    @Autowired
+    private CorsConfigurationSource corsConfigurationSource;
+
     @Bean
-    public PasswordEncoder passwordEncoder(){
+    public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    //Wires our UserDetailsService + BCrypt together for Spring's auth system
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
@@ -47,41 +49,28 @@ public class SecurityConfig {
         return provider;
     }
 
-    //Exposes the AuthenticationManager so AuthController can use it
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception{
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration authConfig) throws Exception {
         return authConfig.getAuthenticationManager();
     }
 
-    //The main security filter chain - defines all the rules
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception{
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                //Disable CSRF - not needed for stateless JWT APIs
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(AbstractHttpConfigurer::disable)
-
-                //Use our custom 401 handler
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(unauthorizedHandler))
-
-                //Stateless - no sessions, no cookies
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                //Route rules
                 .authorizeHttpRequests(auth -> auth
-                        //Public routes
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/payment/webhook").permitAll()
                         .requestMatchers("/error").permitAll()
-                        //Admin only
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        //Everything else requires a valid JWT
                         .anyRequest().authenticated())
-
                 .authenticationProvider(authenticationProvider())
-
-                //Plug in our JWT filter BEFORE Spring's default auth filter
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
