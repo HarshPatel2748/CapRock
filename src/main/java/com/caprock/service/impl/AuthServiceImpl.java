@@ -30,9 +30,6 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private JwtUtil jwtUtil;
 
-    @Autowired
-    private EmailService emailService;
-
     @Value("${admin.email}")
     private String adminEmail;
 
