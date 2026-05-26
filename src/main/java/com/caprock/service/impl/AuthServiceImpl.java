@@ -7,12 +7,16 @@ import com.caprock.model.User;
 import com.caprock.repository.UserRepository;
 import com.caprock.security.jwt.JwtUtil;
 import com.caprock.service.AuthService;
+import com.caprock.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.time.OffsetDateTime;
+import java.util.Random;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -26,6 +30,9 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private JwtUtil jwtUtil;
 
+    @Autowired
+    private EmailService emailService;
+
     @Value("${admin.email}")
     private String adminEmail;
 
@@ -33,13 +40,16 @@ public class AuthServiceImpl implements AuthService {
     private String adminPassword;
 
     @Override
-    public LoginResponse register(RegisterRequest request) {
+    public String register(RegisterRequest request) {
 
         //Check duplicate email
         if(userRepository.existsByEmail(request.getEmail())){
             throw  new ResponseStatusException(
                     HttpStatus.CONFLICT, "Email already registered");
         }
+
+        //Generate 6 digit verification code
+        String code = String.format("%06d", new Random().nextInt(999999));
 
         //Build and save user
         User user = User.builder()
@@ -48,16 +58,17 @@ public class AuthServiceImpl implements AuthService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .plan("free")
                 .credits(10)
+                .verified(false)
+                .verificationCode(code)
+                .verificationCodeExpiry(OffsetDateTime.now().plusMinutes(10))
                 .build();
 
         userRepository.save(user);
 
-        //Generate JWT with USER role
-        String token = jwtUtil.generateToken(
-                user.getId(), user.getEmail(), "USER");
+        //Send verification email
+        emailService.sendVerificationEmail(request.getEmail(), request.getName(), code);
 
-        return new LoginResponse(
-                token, user.getId(), user.getName(), user.getEmail(), "USER", user.getPlan(), user.getCredits());
+        return "Verification code sent to " + request.getEmail();
     }
 
     @Override
@@ -79,6 +90,13 @@ public class AuthServiceImpl implements AuthService {
         if(!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())){
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED, "Invalid email or passwword");
+        }
+
+        //Block unverified users
+        if(!user.getVerified()){
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Please verify your email before logging in."
+            );
         }
 
         String token = jwtUtil.generateToken(user.getId(), user.getEmail(), "USER");
@@ -114,5 +132,49 @@ public class AuthServiceImpl implements AuthService {
 
         user.setName(name.trim());
         userRepository.save(user);
+    }
+
+    //Verify email
+    @Override
+    public LoginResponse verifyEmail(String email, String code){
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "User not found"
+                ));
+
+        //check if already verified
+        if(user.getVerified()){
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Email already verified"
+            );
+        }
+
+        //Check code expiry
+        if(user.getVerificationCodeExpiry() == null || OffsetDateTime.now().isAfter(user.getVerificationCodeExpiry())){
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Verification code expired. Please register again."
+            );
+        }
+
+        //Check code match
+        if(!user.getVerificationCode().equals(code.trim())){
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Invalid verification code."
+            );
+        }
+
+        //Mark as verified and clear code
+        user.setVerified(true);
+        user.setVerificationCode(null);
+        user.setVerificationCodeExpiry(null);
+        userRepository.save(user);
+
+        //Issue JWT
+        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), "USER");
+
+        return new LoginResponse(
+                token, user.getId(), user.getName(), user.getEmail(), "USER", user.getPlan(), user.getCredits()
+        );
     }
 }

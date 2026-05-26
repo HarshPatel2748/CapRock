@@ -6,11 +6,13 @@ import com.caprock.dto.RegisterRequest;
 
 public interface AuthService {
 
-    LoginResponse register(RegisterRequest request);
+    String register(RegisterRequest request);
 
     LoginResponse login(LoginRequest request);
 
     LoginResponse me(String email, String role);
 
     void updateName(String email, String name);
+
+    LoginResponse verifyEmail(String email, String code);
 }

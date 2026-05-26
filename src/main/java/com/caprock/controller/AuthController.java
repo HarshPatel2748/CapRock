@@ -23,11 +23,32 @@ public class AuthController {
     private AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<LoginResponse> register(
+    public ResponseEntity<?> register(
             @Valid @RequestBody RegisterRequest request){
 
-        LoginResponse response = authService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        String message = authService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(Map.of(
+                        "message", message,
+                        "email", request.getEmail()
+                ));
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<LoginResponse> verifyEmail(
+            @RequestBody Map<String, String> body
+    ){
+        String email = body.get("email");
+        String code = body.get("code");
+
+        if(email == null || code == null){
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Email and code are required."
+            );
+        }
+
+        LoginResponse response = authService.verifyEmail(email, code);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/login")

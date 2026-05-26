@@ -45,4 +45,18 @@ public class User {
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean verified = false;
+
+    @Column(name = "verification_code", length = 6)
+    private String verificationCode;
+
+    @Column(name = "verification_code_expiry")
+    private OffsetDateTime verificationCodeExpiry;
+
+    public boolean getVerified() {
+        return verified;
+    }
 }
