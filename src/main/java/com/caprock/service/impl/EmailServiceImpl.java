@@ -5,7 +5,9 @@ import com.resend.Resend;
 import com.resend.core.exception.ResendException;
 import com.resend.services.emails.model.CreateEmailOptions;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
+@Service
 public class EmailServiceImpl implements EmailService {
 
     @Value("${resend.api.key}")
