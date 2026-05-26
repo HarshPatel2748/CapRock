@@ -66,7 +66,11 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
 
         //Send verification email
-        emailService.sendVerificationEmail(request.getEmail(), request.getName(), code);
+        try {
+            emailService.sendVerificationEmail(request.getEmail(), request.getName(), code);
+        }catch (Exception e){
+            System.err.println("Failed to send verification email: " + e.getMessage());
+        }
 
         return "Verification code sent to " + request.getEmail();
     }
