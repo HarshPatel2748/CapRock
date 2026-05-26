@@ -6,7 +6,7 @@ import com.caprock.dto.RegisterRequest;
 
 public interface AuthService {
 
-    String register(RegisterRequest request);
+    LoginResponse register(RegisterRequest request);
 
     LoginResponse login(LoginRequest request);
 

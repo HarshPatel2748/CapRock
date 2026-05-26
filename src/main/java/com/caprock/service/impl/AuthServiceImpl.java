@@ -40,39 +40,32 @@ public class AuthServiceImpl implements AuthService {
     private String adminPassword;
 
     @Override
-    public String register(RegisterRequest request) {
+    public LoginResponse register(RegisterRequest request) {
 
-        //Check duplicate email
-        if(userRepository.existsByEmail(request.getEmail())){
-            throw  new ResponseStatusException(
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Email already registered");
         }
 
-        //Generate 6 digit verification code
-        String code = String.format("%06d", new Random().nextInt(999999));
-
-        //Build and save user
         User user = User.builder()
                 .name(request.getName())
                 .email(request.getEmail())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .plan("free")
                 .credits(10)
-                .verified(false)
-                .verificationCode(code)
-                .verificationCodeExpiry(OffsetDateTime.now().plusMinutes(10))
+                .verified(true)
+                .verificationCode(null)
+                .verificationCodeExpiry(null)
                 .build();
 
         userRepository.save(user);
 
-        //Send verification email
-        try {
-            emailService.sendVerificationEmail(request.getEmail(), request.getName(), code);
-        }catch (Exception e){
-            System.err.println("Failed to send verification email: " + e.getMessage());
-        }
+        String token = jwtUtil.generateToken(
+                user.getId(), user.getEmail(), "USER");
 
-        return "Verification code sent to " + request.getEmail();
+        return new LoginResponse(
+                token, user.getId(), user.getName(),
+                user.getEmail(), "USER", user.getPlan(), user.getCredits());
     }
 
     @Override

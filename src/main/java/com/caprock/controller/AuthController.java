@@ -23,15 +23,11 @@ public class AuthController {
     private AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(
+    public ResponseEntity<LoginResponse> register(
             @Valid @RequestBody RegisterRequest request){
 
-        String message = authService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(Map.of(
-                        "message", message,
-                        "email", request.getEmail()
-                ));
+        LoginResponse response = authService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/verify-email")
