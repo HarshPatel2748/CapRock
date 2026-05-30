@@ -42,6 +42,9 @@ public class PaymentController {
     @Value("${razorpay.webhook.secret}")
     private String webhookSecret;
 
+    @Value("${razorpay.key.secret}")
+    private String razorpayKeySecret;
+
     //Create Order
     @PostMapping("/create-order")
     public ResponseEntity<CreateOrderResponse> createOrder(
@@ -127,7 +130,7 @@ public class PaymentController {
             String data = orderId + "|" + paymentId;
             Mac mac = Mac.getInstance("HmacSHA256");
             SecretKeySpec secretKey = new SecretKeySpec(
-                    webhookSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+                    razorpayKeySecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
             mac.init(secretKey);
             byte[] hash = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
 
