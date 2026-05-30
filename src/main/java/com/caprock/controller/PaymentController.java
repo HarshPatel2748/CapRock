@@ -18,6 +18,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
@@ -120,8 +121,57 @@ public class PaymentController {
             @RequestHeader(value = "X-Razorpay-Signature", required = false) String signature
     ){
 
-        //Placeholder - wired later
+        //Verify webhook signature
+        if(signature == null || !isValidWebhookSignature(payload, signature)){
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid webhook signature"));
+        }
+
+        try{
+            org.json.JSONObject root = new org.json.JSONObject(payload);
+            String event = root.optString("event", "");
+
+            if("payment.captured".equals(event) || "subscription.charged".equals(event)){
+                String email = root
+                        .optJSONObject("payload")
+                        .optJSONObject("payment")
+                        .optJSONObject("entity")
+                        .optString("email", "");
+
+                if(!email.isBlank()){
+                    userRepository.findByEmail(email).ifPresent(user ->
+                            creditService.resetCredits(user));
+                }
+            }
+
+        } catch (Exception e) {
+            //Log but return 200 - Razorpay retries on non-200
+            System.err.println("Webhook processing error: " + e.getMessage());
+        }
+
         return ResponseEntity.ok(Map.of("status", "received"));
+    }
+
+    //Separate method for webhook signature verification using webhookSecret
+    private boolean isValidWebhookSignature(String payload, String signature){
+        try{
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec secretKey = new SecretKeySpec(
+                    webhookSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            mac.init(secretKey);
+            byte[] hash = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+
+            StringBuilder hexString = new StringBuilder();
+            for(byte b : hash){
+                String hex = Integer.toHexString(0xff & b);
+                if(hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+
+            return hexString.toString().equals(signature);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     //HMAC Signature Verification
